@@ -1,51 +1,63 @@
 package main
 
 import (
-    "encoding/json"
-    "github.com/gorilla/mux"
-    "log"
-    "net/http"
-    "bytes"
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
-type BigLittleBinary struct{
-   bytes.Buffer bigEndian     `json:"bigendian,omitempty"`
-   bytes.Buffer littleEndian  `json:"littleendian,omitempty"`
-
+type BigLittleBinary struct {
+	bigEndian    string `json:"bigendian"`
+	littleEndian string `json:"littleendian"`
 }
+
 // Display a single data
 func GetBinary(w http.ResponseWriter, r *http.Request) {
-    params := mux.Vars(r)
-    number := params["number"]
+	params := mux.Vars(r)
+	numberString := params["number"]
+	number, errInt := strconv.ParseInt(numberString, 10, 64)
+	if errInt != nil {
+		// handle error
+		fmt.Println(errInt)
+		os.Exit(2)
+	}
+	bufLittle := new(bytes.Buffer)
+	bufBig := new(bytes.Buffer)
 
+	err := binary.Write(bufLittle, binary.LittleEndian, number)
+	if err != nil {
+		fmt.Println("Little Endian:", err)
+	}
 
-      bufLittle := new(bytes.Buffer)
-      bufBig := new(bytes.Buffer)
+	err2 := binary.Write(bufBig, binary.BigEndian, number)
+	if err != nil {
+		fmt.Println("Little Endian:", err2)
+	}
+	b := fmt.Sprintf("%x", bufBig)
+	l := fmt.Sprintf("%x", bufLittle)
+	// bigString := bufBig.String()
+	// littleString := bufLittle.String()
+	fmt.Println(number, b, l)
+	// fmt.Printf("%d, %x, %x \n", number, bigString, littleString)
+	// fmt.Printf("%d, %x, %x \n", number, bufBig, bufLittle)
+	bigLittleBinary := BigLittleBinary{bigEndian: b, littleEndian: l}
+	fmt.Printf("%+v\n", bigLittleBinary)
+	// fmt.Fprintf(w, "%+v\n", bigLittleBinary)
+	fmt.Fprintf(w, "{\"bigEndian\" : \"%s\", \"littleEndian\" : \"%s\"}\n", b, l)
 
-    err := binary.Write(bufLittle, binary.LittleEndian, number)
-      if err != nil {
-            fmt.Println("Little Endian:", err)
-}
-
-err := binary.Write(bufBig, binary.BigEndian, number)
-  if err != nil {
-        fmt.Println("Little Endian:", err)
-}
-// bigLittleBinary := 
-
-    // for _, item := range people {
-    //     if item.ID == params["id"] {
-    //         json.NewEncoder(w).Encode(item)
-    //         return
-    //     }
-    // }
-    json.NewEncoder(w).Encode(&BigLittleBinary{})
+	// json.NewEncoder(w).Encode(bigLittleBinary)
 }
 
 func main() {
-    router := mux.NewRouter()
+	router := mux.NewRouter()
 
-    router.HandleFunc("/biglittleendian/{number}", GetBinary).Methods("GET")
+	router.HandleFunc("/biglittleendian/{number}", GetBinary).Methods("GET")
 
-    log.Fatal(http.ListenAndServe(":8000", router))
+	log.Fatal(http.ListenAndServe(":8000", router))
 }
